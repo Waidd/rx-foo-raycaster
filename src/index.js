@@ -14,9 +14,8 @@ const SCREEN_WIDTH = 300;
 const SCREEN_HEIGHT = 200;
 const MOVE_SPEED = 0.25;
 const ROTATION_SPEED = 0.25;
-const MAP_WIDTH = 10;
-const MAP_HEIGHT = 10;
-const MAP = [
+
+const map$ = new BehaviorSubject([
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
   [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
   [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
@@ -27,7 +26,7 @@ const MAP = [
   [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
   [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-];
+]);
 
 const canvas = new Canvas(document.body, SCREEN_WIDTH, SCREEN_HEIGHT);
 
@@ -41,33 +40,33 @@ const camera$ = new BehaviorSubject(new Camera({
 Observable.fromEvent(document, 'keydown')
   .map(keyEvent => keyEvent.key)
   .filter(key => ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key))
-  .withLatestFrom(camera$)
-  .subscribe(([key, camera]) => {
+  .withLatestFrom(camera$, map$)
+  .subscribe(([key, camera, map]) => {
     const position = Vector2D.from(camera.position);
     const direction = Vector2D.from(camera.direction);
     const plane = Vector2D.from(camera.plane);
 
     switch (key) {
       case ('ArrowUp'): {
-        const newMapPositionX = Math.round(camera.position.x + (camera.direction.x * MOVE_SPEED));
-        const newMapPositionY = Math.round(camera.position.y + (camera.direction.y * MOVE_SPEED));
+        const newMapPositionX = Math.trunc(camera.position.x + (camera.direction.x * MOVE_SPEED));
+        const newMapPositionY = Math.trunc(camera.position.y + (camera.direction.y * MOVE_SPEED));
 
-        if (!MAP[newMapPositionX][Math.round(camera.position.y)]) {
+        if (!map[newMapPositionX][Math.trunc(camera.position.y)]) {
           position.x += camera.direction.x * MOVE_SPEED;
         }
-        if (!MAP[Math.round(camera.position.x)][newMapPositionY]) {
+        if (!map[Math.trunc(camera.position.x)][newMapPositionY]) {
           position.y += camera.direction.y * MOVE_SPEED;
         }
         break;
       }
       case ('ArrowDown'): {
-        const newMapPositionX = Math.round(camera.position.x - (camera.direction.x * MOVE_SPEED));
-        const newMapPositionY = Math.round(camera.position.y - (camera.direction.y * MOVE_SPEED));
+        const newMapPositionX = Math.trunc(camera.position.x - (camera.direction.x * MOVE_SPEED));
+        const newMapPositionY = Math.trunc(camera.position.y - (camera.direction.y * MOVE_SPEED));
 
-        if (!MAP[newMapPositionX][Math.round(camera.position.y)]) {
+        if (!map[newMapPositionX][Math.trunc(camera.position.y)]) {
           position.x -= camera.direction.x * MOVE_SPEED;
         }
-        if (!MAP[camera.position.x][newMapPositionY]) {
+        if (!map[Math.trunc(camera.position.x)][newMapPositionY]) {
           position.y -= camera.direction.y * MOVE_SPEED;
         }
         break;
@@ -101,13 +100,14 @@ Observable.fromEvent(document, 'keydown')
       }
     }
 
+    console.log('camera', camera.toString());
     camera$.next(new Camera({ position, direction, plane }));
   });
 
 
 Observable.interval(50)
-  .withLatestFrom(camera$)
-  .subscribe(([, camera]) => {
+  .withLatestFrom(camera$, map$)
+  .subscribe(([, camera, map]) => {
     canvas.clear();
     for (let x = 0; x < SCREEN_WIDTH; x += 1) {
       const cameraX = ((2 * x) / SCREEN_WIDTH) - 1;
@@ -118,8 +118,8 @@ Observable.interval(50)
         .add(camera.direction);
 
       const mapPosition = new Vector2D(
-        Math.round(rayPosition.x),
-        Math.round(rayPosition.y),
+        Math.trunc(rayPosition.x),
+        Math.trunc(rayPosition.y),
       );
 
       // length of ray from one x or y-side to next x or y-side
@@ -163,7 +163,7 @@ Observable.interval(50)
           side = 1;
         }
         // Check if ray has hit a wall
-        if (MAP[mapPosition.x][mapPosition.y] > 0) {
+        if (map[mapPosition.x][mapPosition.y] > 0) {
           hit = 1;
         }
 
@@ -182,7 +182,7 @@ Observable.interval(50)
       }
 
       // Calculate height of line to draw on screen
-      const lineHeight = Math.round(SCREEN_HEIGHT / perpendicularWallDistance);
+      const lineHeight = Math.trunc(SCREEN_HEIGHT / perpendicularWallDistance);
 
       // calculate lowest pixel
       let lowestPixel = (SCREEN_HEIGHT - lineHeight) / 2;
