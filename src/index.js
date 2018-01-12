@@ -5,12 +5,14 @@ import 'rxjs/add/operator/map';
 import 'rxjs/add/operator/withLatestFrom';
 import { Observable } from 'rxjs/Observable';
 import { BehaviorSubject } from 'rxjs/BehaviorSubject';
+import { animationFrame } from 'rxjs/scheduler/animationFrame';
 
 import Canvas from './Canvas';
 import Vector2D from './Vector2D';
 import Camera from './Camera';
 import Map from './Map';
 
+const FPS = 30;
 const SCREEN_WIDTH = 300;
 const SCREEN_HEIGHT = 200;
 const MOVE_SPEED = 0.25;
@@ -115,7 +117,7 @@ Observable.fromEvent(document, 'keydown')
   });
 
 
-Observable.interval(50)
+Observable.interval(1000 / FPS, animationFrame)
   .withLatestFrom(camera$, map$)
   .subscribe(([, camera, map]) => {
     canvas.clear();
