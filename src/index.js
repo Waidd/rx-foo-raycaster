@@ -48,27 +48,24 @@ Observable.fromEvent(document, 'keydown')
 
     switch (key) {
       case ('ArrowUp'): {
-        const newMapPositionX = Math.trunc(camera.position.x + (camera.direction.x * MOVE_SPEED));
-        const newMapPositionY = Math.trunc(camera.position.y + (camera.direction.y * MOVE_SPEED));
+        const positionOffset = Vector2D.from(camera.direction).multiply(MOVE_SPEED);
+        const expectedMapPosition = Vector2D.from(camera.position).add(positionOffset).truncate();
+        const currentMapPosition = Vector2D.from(camera.position).truncate();
 
-        if (!map[newMapPositionX][Math.trunc(camera.position.y)]) {
-          position.x += camera.direction.x * MOVE_SPEED;
-        }
-        if (!map[Math.trunc(camera.position.x)][newMapPositionY]) {
-          position.y += camera.direction.y * MOVE_SPEED;
-        }
+        if (!map[expectedMapPosition.x][currentMapPosition.y]) { position.x += positionOffset.x; }
+        if (!map[currentMapPosition.x][expectedMapPosition.y]) { position.y += positionOffset.y; }
         break;
       }
       case ('ArrowDown'): {
-        const newMapPositionX = Math.trunc(camera.position.x - (camera.direction.x * MOVE_SPEED));
-        const newMapPositionY = Math.trunc(camera.position.y - (camera.direction.y * MOVE_SPEED));
+        const positionOffset = Vector2D.from(camera.direction).multiply(MOVE_SPEED);
+        const expectedMapPosition = Vector2D
+          .from(camera.position)
+          .substract(positionOffset)
+          .truncate();
+        const currentMapPosition = Vector2D.from(camera.position).truncate();
 
-        if (!map[newMapPositionX][Math.trunc(camera.position.y)]) {
-          position.x -= camera.direction.x * MOVE_SPEED;
-        }
-        if (!map[Math.trunc(camera.position.x)][newMapPositionY]) {
-          position.y -= camera.direction.y * MOVE_SPEED;
-        }
+        if (!map[expectedMapPosition.x][currentMapPosition.y]) { position.x -= positionOffset.x; }
+        if (!map[currentMapPosition.x][expectedMapPosition.y]) { position.y -= positionOffset.y; }
         break;
       }
       case ('ArrowLeft'): {

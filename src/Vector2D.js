@@ -15,6 +15,17 @@ export default class Vector2D {
     return this;
   }
 
+  substract(operand) {
+    if (operand instanceof Vector2D) {
+      this.x -= operand.x;
+      this.y -= operand.y;
+    } else {
+      this.x -= operand;
+      this.y -= operand;
+    }
+    return this;
+  }
+
   multiply(operand) {
     if (operand instanceof Vector2D) {
       this.x *= operand.x;
@@ -23,6 +34,12 @@ export default class Vector2D {
       this.x *= operand;
       this.y *= operand;
     }
+    return this;
+  }
+
+  truncate() {
+    this.x = Math.trunc(this.x);
+    this.y = Math.trunc(this.y);
     return this;
   }
 
