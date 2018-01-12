@@ -11,7 +11,9 @@ export default class Canvas {
 
   clear() {
     this.context.fillStyle = 'black';
-    this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.context.fillRect(0, 0, this.canvas.width, this.canvas.height / 2);
+    this.context.fillStyle = '#575757';
+    this.context.fillRect(0, this.canvas.height / 2, this.canvas.width, this.canvas.height / 2);
   }
 
   drawLine(x1, y1, x2, y2) {
