@@ -9,24 +9,25 @@ import { BehaviorSubject } from 'rxjs/BehaviorSubject';
 import Canvas from './Canvas';
 import Vector2D from './Vector2D';
 import Camera from './Camera';
+import Map from './Map';
 
 const SCREEN_WIDTH = 300;
 const SCREEN_HEIGHT = 200;
 const MOVE_SPEED = 0.25;
 const ROTATION_SPEED = 0.25;
 
-const map$ = new BehaviorSubject([
+const map$ = new BehaviorSubject(new Map([
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
   [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
   [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
   [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+  [1, 0, 0, 0, 0, 0, 0, 1, 0, 1],
   [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-]);
+]));
 
 const canvas = new Canvas(document.body, SCREEN_WIDTH, SCREEN_HEIGHT);
 
@@ -52,8 +53,14 @@ Observable.fromEvent(document, 'keydown')
         const expectedMapPosition = Vector2D.from(camera.position).add(positionOffset).truncate();
         const currentMapPosition = Vector2D.from(camera.position).truncate();
 
-        if (!map[expectedMapPosition.x][currentMapPosition.y]) { position.x += positionOffset.x; }
-        if (!map[currentMapPosition.x][expectedMapPosition.y]) { position.y += positionOffset.y; }
+        if (!map.collide(expectedMapPosition.x, currentMapPosition.y)
+          && !map.isOutOf(expectedMapPosition.x, currentMapPosition.y)) {
+          position.x += positionOffset.x;
+        }
+        if (!map.collide(currentMapPosition.x, expectedMapPosition.y)
+          && !map.isOutOf(currentMapPosition.x, expectedMapPosition.y)) {
+          position.y += positionOffset.y;
+        }
         break;
       }
       case ('ArrowDown'): {
@@ -64,8 +71,14 @@ Observable.fromEvent(document, 'keydown')
           .truncate();
         const currentMapPosition = Vector2D.from(camera.position).truncate();
 
-        if (!map[expectedMapPosition.x][currentMapPosition.y]) { position.x -= positionOffset.x; }
-        if (!map[currentMapPosition.x][expectedMapPosition.y]) { position.y -= positionOffset.y; }
+        if (!map.collide(expectedMapPosition.x, currentMapPosition.y)
+          && !map.isOutOf(expectedMapPosition.x, currentMapPosition.y)) {
+          position.x -= positionOffset.x;
+        }
+        if (!map.collide(currentMapPosition.x, expectedMapPosition.y)
+          && !map.isOutOf(currentMapPosition.x, expectedMapPosition.y)) {
+          position.y -= positionOffset.y;
+        }
         break;
       }
       case ('ArrowLeft'): {
@@ -148,7 +161,7 @@ Observable.interval(50)
       // perform DDA
       let hit = false;
       let side = null;
-      while (!hit) {
+      while (!hit && !map.isOutOf(mapPosition.x, mapPosition.y)) {
         // jump to next map square, OR in x-direction, OR in y-direction
         if (sideDistance.x < sideDistance.y) {
           sideDistance.x += deltaDistance.x;
@@ -160,33 +173,33 @@ Observable.interval(50)
           side = 1;
         }
         // Check if ray has hit a wall
-        if (map[mapPosition.x][mapPosition.y] > 0) {
+        if (map.collide(mapPosition.x, mapPosition.y)) {
           hit = 1;
         }
-
-        // should check for a too war away block
       }
 
-      // Calculate distance projected on camera direction
-      // (Euclidean distance will give fisheye effect!)
-      let perpendicularWallDistance = null;
-      if (side === 0) {
-        perpendicularWallDistance = ((mapPosition.x - rayPosition.x) + ((1 - step.x) / 2)) /
-          rayDirection.x;
-      } else {
-        perpendicularWallDistance = ((mapPosition.y - rayPosition.y) + ((1 - step.y) / 2)) /
-          rayDirection.y;
+      if (hit) {
+        // Calculate distance projected on camera direction
+        // (Euclidean distance will give fisheye effect!)
+        let perpendicularWallDistance = null;
+        if (side === 0) {
+          perpendicularWallDistance = ((mapPosition.x - rayPosition.x) + ((1 - step.x) / 2)) /
+            rayDirection.x;
+        } else {
+          perpendicularWallDistance = ((mapPosition.y - rayPosition.y) + ((1 - step.y) / 2)) /
+            rayDirection.y;
+        }
+
+        // Calculate height of line to draw on screen
+        const lineHeight = Math.trunc(SCREEN_HEIGHT / perpendicularWallDistance);
+
+        // calculate lowest pixel
+        let lowestPixel = (SCREEN_HEIGHT - lineHeight) / 2;
+        if (lowestPixel < 0) {
+          lowestPixel = 0;
+        }
+
+        canvas.drawLine(x, lowestPixel, 1, lineHeight);
       }
-
-      // Calculate height of line to draw on screen
-      const lineHeight = Math.trunc(SCREEN_HEIGHT / perpendicularWallDistance);
-
-      // calculate lowest pixel
-      let lowestPixel = (SCREEN_HEIGHT - lineHeight) / 2;
-      if (lowestPixel < 0) {
-        lowestPixel = 0;
-      }
-
-      canvas.drawLine(x, lowestPixel, 1, lineHeight);
     }
   });
