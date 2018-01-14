@@ -11,6 +11,9 @@ import Canvas from './Canvas';
 import Vector2D from './Vector2D';
 import Camera from './Camera';
 import Map from './Map';
+import Texture from './Texture';
+
+import missingTextureUrl from '../assets/spritesheets/missing.jpg';
 
 const FPS = 30;
 const SCREEN_WIDTH = 300;
@@ -31,6 +34,8 @@ const map$ = new BehaviorSubject(new Map([
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
 ]));
 
+const texture$ = Texture.load(missingTextureUrl);
+
 const canvas = new Canvas(document.body, SCREEN_WIDTH, SCREEN_HEIGHT);
 
 const camera$ = new BehaviorSubject(new Camera({
@@ -39,7 +44,6 @@ const camera$ = new BehaviorSubject(new Camera({
   plane: new Vector2D(0, 0.66),
 }));
 
-/* const keyDowns$ = */
 Observable.fromEvent(document, 'keydown')
   .map(keyEvent => keyEvent.key)
   .filter(key => ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key))
@@ -118,9 +122,11 @@ Observable.fromEvent(document, 'keydown')
 
 
 Observable.interval(1000 / FPS, animationFrame)
-  .withLatestFrom(camera$, map$)
-  .subscribe(([, camera, map]) => {
+  .withLatestFrom(camera$, map$, texture$)
+  .subscribe(([, camera, map, texture]) => {
+    console.time('renderingTime');
     canvas.clear();
+
     for (let x = 0; x < SCREEN_WIDTH; x += 1) {
       const cameraX = ((2 * x) / SCREEN_WIDTH) - 1;
       const rayPosition = Vector2D.from(camera.position);
@@ -180,28 +186,56 @@ Observable.interval(1000 / FPS, animationFrame)
         }
       }
 
-      if (hit) {
-        // Calculate distance projected on camera direction
-        // (Euclidean distance will give fisheye effect!)
-        let perpendicularWallDistance = null;
-        if (side === 0) {
-          perpendicularWallDistance = ((mapPosition.x - rayPosition.x) + ((1 - step.x) / 2)) /
-            rayDirection.x;
-        } else {
-          perpendicularWallDistance = ((mapPosition.y - rayPosition.y) + ((1 - step.y) / 2)) /
-            rayDirection.y;
-        }
+      if (!hit) { continue; }
 
-        // Calculate height of line to draw on screen
-        const lineHeight = Math.trunc(SCREEN_HEIGHT / perpendicularWallDistance);
+      // Calculate distance projected on camera direction
+      // (Euclidean distance will give fisheye effect!)
+      let perpendicularWallDistance = null;
+      if (side === 0) {
+        perpendicularWallDistance = ((mapPosition.x - rayPosition.x) + ((1 - step.x) / 2)) /
+          rayDirection.x;
+      } else {
+        perpendicularWallDistance = ((mapPosition.y - rayPosition.y) + ((1 - step.y) / 2)) /
+          rayDirection.y;
+      }
 
-        // calculate lowest pixel
-        let lowestPixel = (SCREEN_HEIGHT - lineHeight) / 2;
-        if (lowestPixel < 0) {
-          lowestPixel = 0;
-        }
+      // Calculate height of line to draw on screen
+      const lineHeight = Math.trunc(SCREEN_HEIGHT / perpendicularWallDistance);
 
-        canvas.drawLine(x, lowestPixel, 1, lineHeight);
+      // calculate lowest pixel
+      let lowestPixel = (SCREEN_HEIGHT - lineHeight) / 2;
+      if (lowestPixel < 0) {
+        lowestPixel = 0;
+      }
+      const heighestPixel = lowestPixel + lineHeight;
+
+      let wallX;
+      if (side === 0) {
+        wallX = rayPosition.y + (perpendicularWallDistance * rayDirection.y);
+      } else {
+        wallX = rayPosition.x + (perpendicularWallDistance * rayDirection.x);
+      }
+      wallX -= Math.floor(wallX);
+
+      const texturePosition = new Vector2D(Math.trunc(wallX * texture.image.width));
+      if (side === 0 && rayDirection.x > 0) {
+        texturePosition.x = texture.image.width - texturePosition.x - 1;
+      } else if (side === 1 && rayDirection.y < 0) {
+        texturePosition.x = texture.image.width - texturePosition.x - 1;
+      }
+
+      for (let y = lowestPixel; y < heighestPixel; y += 1) {
+        const d = ((2 * y) - SCREEN_HEIGHT) + lineHeight;
+        texturePosition.y = Math.trunc((d * texture.image.height) / lineHeight / 2);
+
+        const index = ((texturePosition.y * texture.imageBuffer.width) + texturePosition.x) * 4;
+        const r = texture.imageBuffer.data[index];
+        const g = texture.imageBuffer.data[index + 1];
+        const b = texture.imageBuffer.data[index + 2];
+        const color = `rgb(${r}, ${g}, ${b})`;
+
+        canvas.drawPixel(x, y, color);
       }
     }
+    console.timeEnd('renderingTime');
   });

@@ -16,9 +16,12 @@ export default class Canvas {
     this.context.fillRect(0, this.canvas.height / 2, this.canvas.width, this.canvas.height / 2);
   }
 
-  drawLine(x1, y1, x2, y2) {
-    this.context.fillStyle = '#FF00DC';
-    this.context.fillRect(x1, y1, x2, y2);
+  drawPixel(x, y, color = '#FF00DC') {
+    this.context.fillStyle = color;
+    this.context.fillRect(x, y, 1, 1);
+  }
+
+  drawImage(...args) {
+    this.context.drawImage(...args);
   }
 }
-
