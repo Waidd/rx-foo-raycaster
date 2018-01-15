@@ -7,7 +7,7 @@ import { Observable } from 'rxjs/Observable';
 import { BehaviorSubject } from 'rxjs/BehaviorSubject';
 import { animationFrame } from 'rxjs/scheduler/animationFrame';
 
-import Canvas from './Canvas';
+import DoubleBufferCanvas from './DoubleBufferCanvas';
 import Vector2D from './Vector2D';
 import Camera from './Camera';
 import Map from './Map';
@@ -36,7 +36,14 @@ const map$ = new BehaviorSubject(new Map([
 
 const texture$ = Texture.load(missingTextureUrl);
 
-const canvas = new Canvas(document.body, SCREEN_WIDTH, SCREEN_HEIGHT);
+const canvas$ = new BehaviorSubject(new DoubleBufferCanvas(
+  document.body,
+  SCREEN_WIDTH,
+  SCREEN_HEIGHT,
+));
+
+const timer = document.createElement('div');
+document.body.append(timer);
 
 const camera$ = new BehaviorSubject(new Camera({
   position: new Vector2D(1.5, 1.5),
@@ -120,12 +127,32 @@ Observable.fromEvent(document, 'keydown')
     camera$.next(new Camera({ position, direction, plane }));
   });
 
+const pause$ = new BehaviorSubject(true);
+
+Observable.fromEvent(document, 'keyup')
+  .map(keyEvent => keyEvent.key)
+  .filter(key => key === 'p')
+  .withLatestFrom(pause$)
+  .map(([, pause]) => !pause)
+  .subscribe(pause$);
 
 Observable.interval(1000 / FPS, animationFrame)
-  .withLatestFrom(camera$, map$, texture$)
-  .subscribe(([, camera, map, texture]) => {
-    console.time('renderingTime');
-    canvas.clear();
+  .withLatestFrom(canvas$, camera$, map$, texture$, pause$)
+  .subscribe(([, canvas, camera, map, texture, pause]) => {
+    if (pause) { return; }
+
+    const start = new Date();
+
+    for (let y = 0; y < SCREEN_HEIGHT / 2; y += 1) {
+      for (let x = 0; x < SCREEN_WIDTH; x += 1) {
+        canvas.drawPixel(x, y, 'black');
+      }
+    }
+    for (let y = SCREEN_HEIGHT / 2; y < SCREEN_HEIGHT; y += 1) {
+      for (let x = 0; x < SCREEN_WIDTH; x += 1) {
+        canvas.drawPixel(x, y, '#575757');
+      }
+    }
 
     for (let x = 0; x < SCREEN_WIDTH; x += 1) {
       const cameraX = ((2 * x) / SCREEN_WIDTH) - 1;
@@ -203,11 +230,14 @@ Observable.interval(1000 / FPS, animationFrame)
       const lineHeight = Math.trunc(SCREEN_HEIGHT / perpendicularWallDistance);
 
       // calculate lowest pixel
-      let lowestPixel = (SCREEN_HEIGHT - lineHeight) / 2;
+      let lowestPixel = Math.trunc((SCREEN_HEIGHT - lineHeight) / 2);
       if (lowestPixel < 0) {
         lowestPixel = 0;
       }
-      const heighestPixel = lowestPixel + lineHeight;
+      let heighestPixel = lowestPixel + lineHeight;
+      if (heighestPixel >= SCREEN_HEIGHT) {
+        heighestPixel = SCREEN_HEIGHT - 1;
+      }
 
       let wallX;
       if (side === 0) {
@@ -237,7 +267,14 @@ Observable.interval(1000 / FPS, animationFrame)
         canvas.drawPixel(x, y, color);
       }
     }
-    console.timeEnd('renderingTime');
+    const calculationTime = new Date() - start;
+
+    const beforeRendering = new Date();
+    canvas.render();
+    const renderingTime = new Date() - beforeRendering;
+    const totalTime = new Date() - start;
+
+    timer.innerHTML = `calculation ${calculationTime}ms<br/>rendering ${renderingTime}ms<br/>total ${totalTime}ms`;
   });
 
 const textarea = document.createElement('textarea');
