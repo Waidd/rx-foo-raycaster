@@ -239,3 +239,16 @@ Observable.interval(1000 / FPS, animationFrame)
     }
     console.timeEnd('renderingTime');
   });
+
+const textarea = document.createElement('textarea');
+textarea.style.height = '200px';
+document.body.append(textarea);
+map$.subscribe((map) => {
+  textarea.value = map.toString();
+});
+
+Observable.fromEvent(textarea, 'keyup')
+  .withLatestFrom(map$)
+  .filter(([, map]) => map.toString() !== textarea.value)
+  .map(() => new Map(textarea.value.split('\n').map(line => line.split(',').map(value => parseInt(value, 10)))))
+  .subscribe(map$);

@@ -13,4 +13,8 @@ export default class Map {
     if (y < 0 || y >= this.content[x].length) { return true; }
     return false;
   }
+
+  toString() {
+    return this.content.map(line => line.join(',')).join('\n');
+  }
 }
