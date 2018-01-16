@@ -6,25 +6,34 @@ export default class Canvas {
     this.canvas.style.border = '1px solid red';
     this.context = this.canvas.getContext('2d');
 
+    this.shadowCanvas = document.createElement('canvas');
+    this.shadowCanvas.width = width;
+    this.shadowCanvas.height = height;
+    this.shadowContext = this.shadowCanvas.getContext('2d');
+
     parent.append(this.canvas);
   }
 
   clear() {
-    this.context.fillStyle = 'black';
-    this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.shadowContext.fillStyle = 'black';
+    this.shadowContext.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
   drawPixel(x, y, color = '#FF00DC') {
-    this.context.fillStyle = color;
-    this.context.fillRect(x, y, 1, 1);
+    this.shadowContext.fillStyle = color;
+    this.shadowContext.fillRect(x, y, 1, 1);
   }
 
   drawRect(x, y, width, height, color = '#FF00DC') {
-    this.context.fillStyle = color;
-    this.context.fillRect(x, y, width, height);
+    this.shadowContext.fillStyle = color;
+    this.shadowContext.fillRect(x, y, width, height);
   }
 
   drawImage(...args) {
-    this.context.drawImage(...args);
+    this.shadowContext.drawImage(...args);
+  }
+
+  render() {
+    this.context.drawImage(this.shadowCanvas, 0, 0);
   }
 }

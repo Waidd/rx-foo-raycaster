@@ -267,6 +267,8 @@ Observable.interval(1000 / FPS, animationFrame)
       );
     }
 
+    canvas.render();
+
     const renderingTime = new Date() - start;
 
     renderingTimeHistory.push(renderingTime);
