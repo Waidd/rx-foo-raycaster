@@ -11,14 +11,17 @@ export default class Canvas {
 
   clear() {
     this.context.fillStyle = 'black';
-    this.context.fillRect(0, 0, this.canvas.width, this.canvas.height / 2);
-    this.context.fillStyle = '#575757';
-    this.context.fillRect(0, this.canvas.height / 2, this.canvas.width, this.canvas.height / 2);
+    this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
   drawPixel(x, y, color = '#FF00DC') {
     this.context.fillStyle = color;
     this.context.fillRect(x, y, 1, 1);
+  }
+
+  drawRect(x, y, width, height, color = '#FF00DC') {
+    this.context.fillStyle = color;
+    this.context.fillRect(x, y, width, height);
   }
 
   drawImage(...args) {
