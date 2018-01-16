@@ -7,7 +7,7 @@ import { Observable } from 'rxjs/Observable';
 import { BehaviorSubject } from 'rxjs/BehaviorSubject';
 import { animationFrame } from 'rxjs/scheduler/animationFrame';
 
-import DoubleBufferCanvas from './DoubleBufferCanvas';
+import Canvas from './Canvas';
 import Vector2D from './Vector2D';
 import Camera from './Camera';
 import Map from './Map';
@@ -36,7 +36,7 @@ const map$ = new BehaviorSubject(new Map([
 
 const texture$ = Texture.load(missingTextureUrl);
 
-const canvas$ = new BehaviorSubject(new DoubleBufferCanvas(
+const canvas$ = new BehaviorSubject(new Canvas(
   document.body,
   SCREEN_WIDTH,
   SCREEN_HEIGHT,
@@ -136,6 +136,8 @@ Observable.fromEvent(document, 'keyup')
   .map(([, pause]) => !pause)
   .subscribe(pause$);
 
+const renderingTimeHistory = [];
+
 Observable.interval(1000 / FPS, animationFrame)
   .withLatestFrom(canvas$, camera$, map$, texture$, pause$)
   .subscribe(([, canvas, camera, map, texture, pause]) => {
@@ -143,16 +145,8 @@ Observable.interval(1000 / FPS, animationFrame)
 
     const start = new Date();
 
-    for (let y = 0; y < SCREEN_HEIGHT / 2; y += 1) {
-      for (let x = 0; x < SCREEN_WIDTH; x += 1) {
-        canvas.drawPixel(x, y, 'black');
-      }
-    }
-    for (let y = SCREEN_HEIGHT / 2; y < SCREEN_HEIGHT; y += 1) {
-      for (let x = 0; x < SCREEN_WIDTH; x += 1) {
-        canvas.drawPixel(x, y, '#575757');
-      }
-    }
+    canvas.drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2, 'black');
+    canvas.drawRect(0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT, '#575757');
 
     for (let x = 0; x < SCREEN_WIDTH; x += 1) {
       const cameraX = ((2 * x) / SCREEN_WIDTH) - 1;
@@ -229,14 +223,20 @@ Observable.interval(1000 / FPS, animationFrame)
       // Calculate height of line to draw on screen
       const lineHeight = Math.trunc(SCREEN_HEIGHT / perpendicularWallDistance);
 
+      let lineHeightOnScreen = lineHeight;
+      let deltaTextureHeight = 0;
+      if (lineHeight > SCREEN_HEIGHT) {
+        lineHeightOnScreen = SCREEN_HEIGHT;
+        const deltaLineHeight = lineHeight - SCREEN_HEIGHT;
+        deltaTextureHeight = Math.trunc((deltaLineHeight * texture.canvas.height) / lineHeight);
+      }
+      const textureYOffset = Math.trunc(deltaTextureHeight / 2);
+      const textureHeight = texture.canvas.height - deltaTextureHeight;
+
       // calculate lowest pixel
       let lowestPixel = Math.trunc((SCREEN_HEIGHT - lineHeight) / 2);
       if (lowestPixel < 0) {
         lowestPixel = 0;
-      }
-      let heighestPixel = lowestPixel + lineHeight;
-      if (heighestPixel >= SCREEN_HEIGHT) {
-        heighestPixel = SCREEN_HEIGHT - 1;
       }
 
       let wallX;
@@ -247,34 +247,36 @@ Observable.interval(1000 / FPS, animationFrame)
       }
       wallX -= Math.floor(wallX);
 
-      const texturePosition = new Vector2D(Math.trunc(wallX * texture.image.width));
+      let textureXOffset = Math.trunc(wallX * texture.image.width);
       if (side === 0 && rayDirection.x > 0) {
-        texturePosition.x = texture.image.width - texturePosition.x - 1;
+        textureXOffset = texture.image.width - textureXOffset - 1;
       } else if (side === 1 && rayDirection.y < 0) {
-        texturePosition.x = texture.image.width - texturePosition.x - 1;
+        textureXOffset = texture.image.width - textureXOffset - 1;
       }
 
-      for (let y = lowestPixel; y < heighestPixel; y += 1) {
-        const d = ((2 * y) - SCREEN_HEIGHT) + lineHeight;
-        texturePosition.y = Math.trunc((d * texture.image.height) / lineHeight / 2);
-
-        const index = ((texturePosition.y * texture.imageBuffer.width) + texturePosition.x) * 4;
-        const r = texture.imageBuffer.data[index];
-        const g = texture.imageBuffer.data[index + 1];
-        const b = texture.imageBuffer.data[index + 2];
-        const color = `rgb(${r}, ${g}, ${b})`;
-
-        canvas.drawPixel(x, y, color);
-      }
+      canvas.drawImage(
+        texture.canvas, // img src
+        textureXOffset, // src x
+        textureYOffset, // src y
+        1, // src width
+        textureHeight, // src height
+        x, // dest x
+        lowestPixel, // dest y
+        1, // dest width
+        lineHeightOnScreen, // dest height
+      );
     }
-    const calculationTime = new Date() - start;
 
-    const beforeRendering = new Date();
-    canvas.render();
-    const renderingTime = new Date() - beforeRendering;
-    const totalTime = new Date() - start;
+    const renderingTime = new Date() - start;
 
-    timer.innerHTML = `calculation ${calculationTime}ms<br/>rendering ${renderingTime}ms<br/>total ${totalTime}ms`;
+    renderingTimeHistory.push(renderingTime);
+    if (renderingTimeHistory.length > 100) { renderingTimeHistory.shift(); }
+
+    let averageTime = renderingTimeHistory.reduce((a, b) => a + b, 0);
+    averageTime /= renderingTimeHistory.length;
+    averageTime = Math.trunc(averageTime);
+
+    timer.innerHTML = `rendering ${renderingTime}ms<br/>average ${averageTime}ms`;
   });
 
 const textarea = document.createElement('textarea');

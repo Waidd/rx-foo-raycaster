@@ -9,14 +9,12 @@ export default class Texture {
   }
 
   extractImageData() {
-    const canvas = document.createElement('canvas');
-    canvas.width = this.image.width;
-    canvas.height = this.image.height;
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = this.image.width;
+    this.canvas.height = this.image.height;
 
-    const context = canvas.getContext('2d');
-    context.drawImage(this.image, 0, 0);
-
-    this.imageBuffer = context.getImageData(0, 0, this.image.width, this.image.height);
+    this.context = this.canvas.getContext('2d');
+    this.context.drawImage(this.image, 0, 0);
   }
 
   onload() {
