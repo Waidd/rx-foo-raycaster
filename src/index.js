@@ -35,6 +35,7 @@ const map$ = new BehaviorSubject(new Map([
 ]));
 
 const texture$ = Texture.load(missingTextureUrl);
+const dogSpriteSheet$ = SpriteSheet.load(dogTextureUrl);
 
 const canvas$ = new BehaviorSubject(new Canvas(
   document.body,
@@ -139,14 +140,16 @@ Observable.fromEvent(document, 'keyup')
 const renderingTimeHistory = [];
 
 Observable.interval(1000 / FPS, animationFrame)
-  .withLatestFrom(canvas$, camera$, map$, texture$, pause$)
-  .subscribe(([, canvas, camera, map, texture, pause]) => {
+  .withLatestFrom(canvas$, camera$, map$, texture$, dogSpriteSheet$, pause$)
+  .subscribe(([, canvas, camera, map, texture, dogSpriteSheet, pause]) => {
     if (pause) { return; }
 
     const start = new Date();
 
     canvas.drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2, 'black');
     canvas.drawRect(0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT, '#575757');
+
+    const zBuffer = {};
 
     for (let x = 0; x < SCREEN_WIDTH; x += 1) {
       const cameraX = ((2 * x) / SCREEN_WIDTH) - 1;
@@ -207,7 +210,10 @@ Observable.interval(1000 / FPS, animationFrame)
         }
       }
 
-      if (!hit) { continue; }
+      if (!hit) {
+        zBuffer[x] = Infinity;
+        continue;
+      }
 
       // Calculate distance projected on camera direction
       // (Euclidean distance will give fisheye effect!)
@@ -219,6 +225,8 @@ Observable.interval(1000 / FPS, animationFrame)
         perpendicularWallDistance = ((mapPosition.y - rayPosition.y) + ((1 - step.y) / 2)) /
           rayDirection.y;
       }
+
+      zBuffer[x] = perpendicularWallDistance;
 
       // Calculate height of line to draw on screen
       const lineHeight = Math.trunc(SCREEN_HEIGHT / perpendicularWallDistance);
@@ -265,6 +273,65 @@ Observable.interval(1000 / FPS, animationFrame)
         1, // dest width
         lineHeightOnScreen, // dest height
       );
+    }
+
+    // DRAW A DOG SPRITE
+    const whereIsDog = new Vector2D(
+      5,
+      5,
+    );
+
+    // translate sprite position to relative to camera
+    const spritePosition = new Vector2D(
+      whereIsDog.x - camera.position.x,
+      whereIsDog.y - camera.position.y,
+    );
+
+    const invDet = 1.0 / ((camera.plane.x * camera.direction.y) - (camera.direction.x * camera.plane.y));
+
+    const transform = new Vector2D(
+      invDet * ((camera.direction.y * spritePosition.x) - (camera.direction.x * spritePosition.y)),
+      // this is actually the depth inside the screen, that what Z is in 3D
+      invDet * ((-camera.plane.y * spritePosition.x) + (camera.plane.x * spritePosition.y)),
+    );
+
+    if (transform.y > 0) {
+      const spriteScreenPositionX = Math.trunc((SCREEN_WIDTH / 2) * (1 + (transform.x / transform.y)));
+
+      // calculate height of the sprite on screen
+      // using "transformY" instead of the real distance prevents fisheye
+      const spriteScreenHeight = Math.abs(Math.trunc(SCREEN_HEIGHT / transform.y));
+      // calculate lowest and highest pixel to fill in current stripe
+      let drawStartY = (-spriteScreenHeight / 2) + (SCREEN_HEIGHT / 2);
+      if (drawStartY < 0) { drawStartY = 0; }
+
+      // calculate width of the sprite
+      const spriteScreenWidth = Math.abs(Math.trunc(SCREEN_HEIGHT / transform.y));
+      let drawStartX = Math.trunc((-spriteScreenWidth / 2) + spriteScreenPositionX);
+      if (drawStartX < 0) { drawStartX = 0; }
+      let drawEndX = Math.trunc((spriteScreenWidth / 2) + spriteScreenPositionX);
+      if (drawEndX >= SCREEN_WIDTH) { drawEndX = SCREEN_WIDTH - 1; }
+
+      const spriteIndex = dogSpriteSheet.elements.RUNNING_045_00;
+
+      for (let stripe = drawStartX; stripe < drawEndX; stripe += 1) {
+        const texX = Math.trunc(256 * (stripe - ((-spriteScreenWidth / 2) + spriteScreenPositionX)) * (spriteIndex.width / spriteScreenWidth)) / 256;
+        if (transform.y < zBuffer[stripe]) {
+          const d = ((drawStartY * 256) - (SCREEN_HEIGHT * 128)) + (spriteScreenHeight * 128);
+          const texY = ((d * spriteIndex.height) / spriteScreenHeight) / 256;
+          canvas.drawImage(
+            dogSpriteSheet.canvas,
+            spriteIndex.x + texX, // src x
+            spriteIndex.y + texY, // src y
+            1, // src width
+            spriteIndex.height, // src height
+            stripe, // dest x
+            drawStartY, // dest y
+            1, // dest width
+            spriteScreenHeight, // dest height
+          );
+        }
+      }
     }
 
     const renderingTime = new Date() - start;
