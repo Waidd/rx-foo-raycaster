@@ -8,7 +8,7 @@ export default class Texture {
     this.stream$ = new Subject();
   }
 
-  extractImageData() {
+  preRender() {
     this.canvas = document.createElement('canvas');
     this.canvas.width = this.image.width;
     this.canvas.height = this.image.height;
@@ -18,7 +18,7 @@ export default class Texture {
   }
 
   onload() {
-    this.extractImageData();
+    this.preRender();
     this.stream$.next(this);
   }
 
