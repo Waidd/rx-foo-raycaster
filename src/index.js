@@ -166,8 +166,8 @@ Observable.interval(1000 / FPS, animationFrame)
 
       // length of ray from one x or y-side to next x or y-side
       const deltaDistance = new Vector2D(
-        Math.sqrt(1 + ((rayDirection.y * rayDirection.y) / (rayDirection.x * rayDirection.x))),
-        Math.sqrt(1 + ((rayDirection.x * rayDirection.x) / (rayDirection.y * rayDirection.y))),
+        Math.abs(1 / rayDirection.x),
+        Math.abs(1 / rayDirection.y),
       );
 
       const step = new Vector2D();
