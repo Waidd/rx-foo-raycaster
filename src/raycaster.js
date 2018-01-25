@@ -1,6 +1,6 @@
 import Vector2D from './Vector2D';
 
-export function computeWall(screenWidth, screenHeight, canvas, camera, map, texture) {
+export function computeWall(screenWidth, screenHeight, canvas, camera, map) {
   const zBuffer = {};
 
   [...Array(screenWidth).keys()].forEach((x) => {
@@ -66,6 +66,8 @@ export function computeWall(screenWidth, screenHeight, canvas, camera, map, text
       zBuffer[x] = Infinity;
       return;
     }
+
+    const { texture } = map.getBlockAt(mapPosition.x, mapPosition.y);
 
     // Calculate distance projected on camera direction
     // (Euclidean distance will give fisheye effect!)

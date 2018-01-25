@@ -1,10 +1,12 @@
 import 'rxjs/add/observable/interval';
 import 'rxjs/add/observable/fromEvent';
+import 'rxjs/add/observable/combineLatest';
 import 'rxjs/add/operator/filter';
 import 'rxjs/add/operator/map';
 import 'rxjs/add/operator/withLatestFrom';
 import { Observable } from 'rxjs/Observable';
 import { BehaviorSubject } from 'rxjs/BehaviorSubject';
+import { Subject } from 'rxjs/Subject';
 import { animationFrame } from 'rxjs/scheduler/animationFrame';
 
 import Canvas from './Canvas';
@@ -17,25 +19,60 @@ import { computeWall, computeDog } from './raycaster';
 import handleInput from './input';
 import { FPS, SCREEN_WIDTH, SCREEN_HEIGHT } from './constants';
 
-
 import missingTextureUrl from '../assets/spritesheets/missing.jpg';
+import missingTextureUrl2 from '../assets/spritesheets/missing2.jpg';
 import dogTextureUrl from '../assets/spritesheets/dog.png';
 
-const map$ = new BehaviorSubject(new Map([
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 1, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-]));
+const map$ = new Subject();
 
-const texture$ = Texture.load(missingTextureUrl);
+const textureMissing$ = Texture.load(missingTextureUrl);
+const textureMissing2$ = Texture.load(missingTextureUrl2);
 const dogSpriteSheet$ = SpriteSheet.load(dogTextureUrl);
+
+Observable.combineLatest(textureMissing$, textureMissing2$)
+  .subscribe(([texture1, texture2]) => {
+    map$.next(new Map([
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 1, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 1, 1, 1, 1, 2, 1, 1, 1, 1],
+    ], {
+      0: null,
+      1: texture1,
+      2: texture2,
+      default: texture1,
+    }));
+  });
+
+const textarea = document.createElement('textarea');
+textarea.style.height = '200px';
+document.body.append(textarea);
+map$.subscribe((map) => {
+  textarea.value = map.toString();
+});
+
+Observable.fromEvent(textarea, 'keyup')
+  .withLatestFrom(map$, textureMissing$, textureMissing2$)
+  .filter(([, map]) => map.toString() !== textarea.value)
+  .map(([, , texture1, texture2]) => {
+    const content = textarea.value.split('\n').map(line => line.split(',').map(value => parseInt(value, 10)));
+    const atlas = {
+      0: null,
+      1: texture1,
+      2: texture2,
+      default: texture1,
+    };
+
+    return new Map(content, atlas);
+  })
+  .subscribe(map$);
+
 
 const canvas$ = new BehaviorSubject(new Canvas(
   document.body,
@@ -66,8 +103,8 @@ Observable.fromEvent(document, 'keyup')
 const renderingTimeHistory = [];
 
 Observable.interval(1000 / FPS, animationFrame)
-  .withLatestFrom(canvas$, camera$, map$, texture$, dogSpriteSheet$, pause$)
-  .subscribe(([, canvas, camera, map, texture, dogSpriteSheet, pause]) => {
+  .withLatestFrom(canvas$, camera$, map$, dogSpriteSheet$, pause$)
+  .subscribe(([, canvas, camera, map, dogSpriteSheet, pause]) => {
     if (pause) { return; }
 
     const start = new Date();
@@ -75,7 +112,7 @@ Observable.interval(1000 / FPS, animationFrame)
     canvas.drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2, 'black');
     canvas.drawRect(0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT, '#575757');
 
-    const zBuffer = computeWall(SCREEN_WIDTH, SCREEN_HEIGHT, canvas, camera, map, texture);
+    const zBuffer = computeWall(SCREEN_WIDTH, SCREEN_HEIGHT, canvas, camera, map);
     computeDog(SCREEN_WIDTH, SCREEN_HEIGHT, camera, dogSpriteSheet, canvas, zBuffer);
 
     const renderingTime = new Date() - start;
@@ -89,16 +126,3 @@ Observable.interval(1000 / FPS, animationFrame)
 
     timer.innerHTML = `rendering ${renderingTime}ms<br/>average ${averageTime}ms`;
   });
-
-const textarea = document.createElement('textarea');
-textarea.style.height = '200px';
-document.body.append(textarea);
-map$.subscribe((map) => {
-  textarea.value = map.toString();
-});
-
-Observable.fromEvent(textarea, 'keyup')
-  .withLatestFrom(map$)
-  .filter(([, map]) => map.toString() !== textarea.value)
-  .map(() => new Map(textarea.value.split('\n').map(line => line.split(',').map(value => parseInt(value, 10)))))
-  .subscribe(map$);
