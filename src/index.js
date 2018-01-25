@@ -54,7 +54,7 @@ const camera$ = new BehaviorSubject(new Camera({
 
 Observable.fromEvent(document, 'keydown')
   .map(keyEvent => keyEvent.key)
-  .filter(key => ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key))
+  .filter(key => ['z', 's', 'q', 'd', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key))
   .withLatestFrom(camera$, map$)
   .subscribe(([key, camera, map]) => {
     const position = Vector2D.from(camera.position);
@@ -62,6 +62,39 @@ Observable.fromEvent(document, 'keydown')
     const plane = Vector2D.from(camera.plane);
 
     switch (key) {
+      case ('d'): {
+        const perpendicularDirection = new Vector2D(-camera.direction.y, camera.direction.x);
+        const positionOffset = perpendicularDirection.multiply(MOVE_SPEED);
+        const expectedMapPosition = Vector2D.from(camera.position).add(positionOffset).truncate();
+        const currentMapPosition = Vector2D.from(camera.position).truncate();
+
+        if (!map.collide(expectedMapPosition.x, currentMapPosition.y)
+          && !map.isOutOf(expectedMapPosition.x, currentMapPosition.y)) {
+          position.x += positionOffset.x;
+        }
+        if (!map.collide(currentMapPosition.x, expectedMapPosition.y)
+          && !map.isOutOf(currentMapPosition.x, expectedMapPosition.y)) {
+          position.y += positionOffset.y;
+        }
+        break;
+      }
+      case ('q'): {
+        const perpendicularDirection = new Vector2D(camera.direction.y, -camera.direction.x);
+        const positionOffset = perpendicularDirection.multiply(MOVE_SPEED);
+        const expectedMapPosition = Vector2D.from(camera.position).add(positionOffset).truncate();
+        const currentMapPosition = Vector2D.from(camera.position).truncate();
+
+        if (!map.collide(expectedMapPosition.x, currentMapPosition.y)
+          && !map.isOutOf(expectedMapPosition.x, currentMapPosition.y)) {
+          position.x += positionOffset.x;
+        }
+        if (!map.collide(currentMapPosition.x, expectedMapPosition.y)
+          && !map.isOutOf(currentMapPosition.x, expectedMapPosition.y)) {
+          position.y += positionOffset.y;
+        }
+        break;
+      }
+      case ('z'):
       case ('ArrowUp'): {
         const positionOffset = Vector2D.from(camera.direction).multiply(MOVE_SPEED);
         const expectedMapPosition = Vector2D.from(camera.position).add(positionOffset).truncate();
@@ -77,6 +110,7 @@ Observable.fromEvent(document, 'keydown')
         }
         break;
       }
+      case ('s'):
       case ('ArrowDown'): {
         const positionOffset = Vector2D.from(camera.direction).multiply(MOVE_SPEED);
         const expectedMapPosition = Vector2D
